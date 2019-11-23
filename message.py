@@ -1,7 +1,6 @@
 import logging
 import random
-import socket
-from struct import pack, unpack
+from struct import pack, unpack, Struct
 
 # HandShake - String identifier of the protocol for BitTorrent V1
 import bitstring
@@ -151,6 +150,7 @@ class UdpTrackerAnnounceOutput:
 20 + 6 * N
 
     """
+    ipport = Struct('>IH')
 
     def __init__(self):
         self.action = None
@@ -166,23 +166,8 @@ class UdpTrackerAnnounceOutput:
         self.interval, = unpack('>I', payload[8:12])
         self.leechers, = unpack('>I', payload[12:16])
         self.seeders, = unpack('>I', payload[16:20])
-        self.list_sock_addr = self._parse_sock_addr(payload[20:])
-
-    def _parse_sock_addr(self, raw_bytes):
-        socks_addr = []
-
-        # socket address : <IP(4 bytes)><Port(2 bytes)>
-        # len(socket addr) == 6 bytes
-        for i in range(int(len(raw_bytes) / 6)):
-            start = i * 6
-            end = start + 6
-            ip = socket.inet_ntoa(raw_bytes[start:(end - 2)])
-            raw_port = raw_bytes[(end - 2):end]
-            port = raw_port[1] + raw_port[0] * 256
-
-            socks_addr.append((ip, port))
-
-        return socks_addr
+        end = ((len(payload) - 20) // 6 * 6) + 20 # if payload broken by MTU
+        self.list_sock_addr = list(self.ipport.iter_unpack(payload[20:end]))
 
 
 """
